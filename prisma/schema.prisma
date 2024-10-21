@@ -1,0 +1,135 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String     @id @default(uuid())
+  email     String     @unique
+  password  String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  modules   Module[]   @relation("UserModules")
+  role      Role       @default(LEARNER)
+  progress  Progress[]
+  ratings   Rating[]
+  bookmarks Bookmark[]
+  Profile   Profile?
+
+  @@map("users")
+}
+
+model Profile {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  name      String
+  role      Role     @default(LEARNER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("profiles")
+}
+
+model Module {
+  id          String           @id @default(uuid())
+  title       String
+  description String
+  visibility  Visibility       @default(PRIVATE)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  tags        String[]
+  resources   ModuleResource[] // Many-to-many relationship with resources
+  createdBy   User             @relation("UserModules", fields: [createdById], references: [id])
+  createdById String
+  progress    Progress[]
+  ratings     Rating[]
+  bookmarks   Bookmark[]
+
+  @@map("modules")
+}
+
+model Resource {
+  id String @id @default(uuid())
+
+  title     String
+  url       String
+  type      ResourceType
+  isPublic  Boolean          @default(false) // Indicates if the resource is public
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  modules   ModuleResource[] // Many-to-many relationship with modules
+
+  @@map("resources")
+}
+
+model ModuleResource {
+  moduleId   String
+  resourceId String
+  module     Module   @relation(fields: [moduleId], references: [id])
+  resource   Resource @relation(fields: [resourceId], references: [id])
+
+  @@id([moduleId, resourceId]) // Composite primary key
+}
+
+model Progress {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  moduleId    String
+  module      Module    @relation(fields: [moduleId], references: [id])
+  completion  Float     @default(0.0) // Completion percentage
+  startedAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  completedAt DateTime?
+
+  @@map("progress")
+}
+
+model Rating {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  moduleId  String
+  module    Module   @relation(fields: [moduleId], references: [id])
+  rating    Int
+  review    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("ratings")
+}
+
+model Bookmark {
+  id         String   @id @default(uuid())
+  user       User     @relation(fields: [userId], references: [id])
+  userId     String
+  module     Module?  @relation(fields: [moduleId], references: [id]) // Add this reverse relation
+  moduleId   String? // Nullable for bookmarking modules
+  resourceId String? // Nullable for bookmarking resources
+  createdAt  DateTime @default(now())
+
+  @@map("bookmarks")
+}
+
+enum Role {
+  LEARNER
+  ADMIN
+}
+
+enum Visibility {
+  PUBLIC
+  PRIVATE
+  SHARED
+}
+
+enum ResourceType {
+  VIDEO
+  ARTICLE
+  FILE
+  LINK
+}
